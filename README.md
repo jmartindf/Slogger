@@ -54,6 +54,9 @@ Slogger indexes various public social services and creates Day One (<http://dayo
             - Gist
             - SoundCloud
             - Strava
+            -  untappd (requires [untappd](https://github.com/cmar/untappd) gem)
+                - beer checkins for the day
+            - Wunderlist new and optionally completed/overdue tasks (see notes for required gems/versions)
 - Slogger can be called with a single argument that is a path to a local image or text file, and an entry will be created containing its contents.
     - You can use this with a folder action or launchd task to add files from a folder connected to something like <http://IFTTT.com>. Any images added to the watched folder will be turned into journal entries.
         -  Note that Slogger does not delete the original file, so your script needs to move files out of the folder manually to avoid double-processing.
@@ -62,13 +65,14 @@ Slogger indexes various public social services and creates Day One (<http://dayo
 ## Install ##
 
 1. Download and unzip (or clone using git) the Slogger project. It can be stored in your home directory, a scripts folder or anywhere else on your drive.
-2. From the command line, change to the Slogger folder and run the following commands:
+2. Make sure you have the Xcode command line tools installed. (See Troubleshooting section below.)
+3. From the command line, change to the Slogger folder and run the following commands:
         
         sudo gem install bundler
         bundle install 
-3. Default plugins are stored in `/plugins/`, additional plugins are usually found in `/plugins_disabled/`. Plugins are enabled and disabled by adding/removing them from the `/plugins/` folder. Move any additional plugins you want to use into `/plugins/` and disable any other plugins by moving them from `/plugins/` to `plugins_disabled`. (Plugins that are found in `plugins` but not configured will not break anything, but you'll see warnings when run.)
-4. From within the Slogger folder, run `./slogger --update-config` to create the initial configuration file. If this doesn't work, you may need to make the file executable: `chmod a+x slogger` from within the Slogger folder. Note that any time you add new plugins or update existing ones, you'll want to run `./slogger --update-config` to ensure that your available options are up to date.
-5. Edit the file `slogger_config` that shows up in your Slogger folder
+4. Default plugins are stored in `/plugins/`, additional plugins are usually found in `/plugins_disabled/`. Plugins are enabled and disabled by adding/removing them from the `/plugins/` folder. Move any additional plugins you want to use into `/plugins/` and disable any other plugins by moving them from `/plugins/` to `plugins_disabled`. (Plugins that are found in `plugins` but not configured will not break anything, but you'll see warnings when run.)
+5. From within the Slogger folder, run `./slogger --update-config` to create the initial configuration file. If this doesn't work, you may need to make the file executable: `chmod a+x slogger` from within the Slogger folder. Note that any time you add new plugins or update existing ones, you'll want to run `./slogger --update-config` to ensure that your available options are up to date.
+6. Edit the file `slogger_config` that shows up in your Slogger folder
     - The required options will be 'storage:', 'image_filename_is_title:', 'date_format:' and 'time_format:'
     - storage: should be one of
         -  'icloud'
@@ -77,9 +81,9 @@ Slogger indexes various public social services and creates Day One (<http://dayo
     - image_filename_is_title: should be set to true or false. If true, it will use the base filename (without extension) as the title of images imported individually.
     - date_format and time_format should be set to your preferred style (strftime)
 
-6. Edit additional configuration options for any plugins defined. The config file is formatted as YAML, and your options need to conform to that syntax. For the most part, you can just maintain the formatting (quotes, dashes, brackets, etc.) of the default settings when updating.
+7. Edit additional configuration options for any plugins defined. The config file is formatted as YAML, and your options need to conform to that syntax. For the most part, you can just maintain the formatting (quotes, dashes, brackets, etc.) of the default settings when updating.
     - **Note:** Some plugins have options that will be filled in automatically. For example, the Twitter plugin requires you to log in on the command line and enter a PIN, after which it completes the authorization and saves your token to the configuration. If you install a plugin which requires oAuth, be sure to run Slogger from the command line with "./slogger -o plugin_name" once to complete the login procedure and save your credentials.
-7. Next time you run `./slogger`, it will execute the enabled and configured plugins and generate your journal entries. 
+8. Next time you run `./slogger`, it will execute the enabled and configured plugins and generate your journal entries. 
 
 ## Usage ##
 
@@ -146,11 +150,11 @@ When developing plugins you can create a directory called 'plugins_develop' in t
 
 ### System Requirements
 
-Slogger depends on Apple’s system Ruby version to run. You can check the Ruby version by typing `ruby -v` in your terminal, it should return something like `ruby 1.8.7 (2012-02-08 patchlevel 358) [universal-darwin12.0]`.
+Slogger depends on Apple’s system Ruby version to run. You can check the Ruby version by typing `ruby -v` in your terminal, it should return something like `ruby 2.0.0p247 (2013-06-27 revision 41674) [universal.x86_64-darwin13]`.
 
-Slogger does not currently support Ruby 1.9.x or 2.x.
+As of the release of Mavericks Apple are providing Ruby version 2.0. Slogger is transitioning to full 2.0 support so meanwhile your mileage may vary.
 
-If you are using RVM or RBENV to manage your Ruby installation, you can set the system Ruby as the default.
+If you are using RVM or RBENV to manage your Ruby installation, you can set an alternative Ruby version as the default.
 
 For RVM check here: [https://rvm.io/rubies/default](https://rvm.io/rubies/default)
 
@@ -163,6 +167,27 @@ In order for Slogger to run you must have an up-to-date version of Xcode's Comma
 Download Xcode from the OSX App Store. When it has downloaded launch it, open "Preferences", and under "Downloads" click on the arrow to the right of "Command Line Tools".
 
 ![](https://f.cloud.github.com/assets/222514/1398971/ee9b6a00-3cad-11e3-8583-c0c1ce804e3a.png)
+
+Alternatively you can download the command line tools from Apple here: [https://developer.apple.com/downloads/index.action](https://developer.apple.com/downloads/index.action)
+
+#### Known Issue with Xcode 5.1
+
+Apple updated the clang compiler to version 5.1 with the latest Xcode update, which breaks building gems with native extensions. They fail with this error: `clang: error: unknown argument: '-multiply_definedsuppress' [-Wunused-command-line-argument-hard-error-in-future]`
+You can check your version of clang with `clang -v` on the terminal. 
+
+While that [bug is being worked on](https://bugs.ruby-lang.org/issues/9624), here is a temporary workaound:
+
+First we need to install bundler.
+
+```bash
+sudo env ARCHFLAGS=-Wno-error=unused-command-line-argument-hard-error-in-future gem install bundler
+```
+
+And after that, use bundler to install other gems:
+
+```bash
+sudo env ARCHFLAGS=-Wno-error=unused-command-line-argument-hard-error-in-future bundle install
+```
 
 ### Plugins
 

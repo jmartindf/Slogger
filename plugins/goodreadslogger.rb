@@ -77,10 +77,10 @@ class GoodreadsLogger < Slogger
     end
 
     tags = @grconfig['goodreads_tags'] || ''
-    tags = "\n\n#{tags}\n" unless tags == ''
+    tags = "\n\n(#{tags})\n" unless tags == ''
 
     begin
-      rss_content = ""
+      #rss_content = ""
 
       feed_download_response = Net::HTTP.get_response(URI.parse(rss_feed));
       xml_data = feed_download_response.body;
@@ -91,21 +91,29 @@ class GoodreadsLogger < Slogger
         item_date = Time.parse(item.elements['pubDate'].text)
         if item_date > @timespan
           imageurl = false
-          #  need to filter out unread items, can do it by those that have a rating assigned to them
+          #  read items are those where the guid type begins with 'Review'
             #debugger
-          break if item.elements['user_rating'].text=="0"
+          #next if !item.elements['guid'].text.start_with?('Review')
+          #desc = item.elements['book_description'].cdatas().join
           if save_image
-            imageurl = item.elements['book_large_image_url'].text rescue false
+            imageurl = item.elements['book_large_image_url'].cdatas().join rescue false
           end
-          content += "* Author: #{item.elements['author_name'].text}\n" rescue ''
-          content += "* Average rating: #{item.elements['average_rating'].text}\n" rescue ''
-          content += "* My rating: #{item.elements['user_rating'].text}\n" rescue ''
-          content += "* My review:\n\n    #{item.elements['user_review'].text}\n" rescue ''
+          content += "* Author: #{item.elements['author_name'].text}\n"
+          content += "* My rating: #{item.elements['user_rating'].text} / 5\n" rescue ''
+          if item.elements['title'].to_s =~ /CDATA/
+            title = item.elements['title'].cdatas().join
+          else
+            title = item.elements['title'].text
+          end
+          review = item.elements['user_review'].cdatas().join rescue ''
+          if !review.empty?
+            content += "* My review:\n\n    #{review}\n" rescue ''
+          end
           content = content != '' ? "\n\n#{content}" : ''
 
           options = {}
-          options['content'] = "Finished reading [#{item.elements['title'].text.gsub(/\n+/,' ').strip}](#{item.elements['link'].text.strip})#{content}#{tags}"
-          options['datestamp'] = Time.parse(item.elements['user_read_at'].text).utc.iso8601 rescue Time.parse(item.elements['pubDate'].text).utc.iso8601
+          options['content'] = "Finished reading [#{title}](#{item.elements['link'].cdatas().join})#{content}#{tags}"
+          options['datestamp'] = Time.parse(item.elements['pubDate'].text).utc.iso8601
           options['starred'] = starred
           options['uuid'] = %x{uuidgen}.gsub(/-/,'').strip
           sl = DayOne.new

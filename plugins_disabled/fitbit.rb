@@ -57,14 +57,14 @@ class FitbitLogger < Slogger
         fitbit_consumer_key = config['fitbit_consumer_key']
         fitbit_consumer_secret = config['fitbit_consumer_secret']
         
-        client = Fitgem::Client.new(:consumer_key => fitbit_consumer_key, :consumer_secret => fitbit_consumer_secret, :unit_system => config['fitbit_unit_system'])
+        client = Fitgem::Client.new(:consumer_key => fitbit_consumer_key, :consumer_secret => fitbit_consumer_secret, :ssl => true, :unit_system => translateUnitSystem(config['fitbit_unit_system']))
         developMode = $options[:develop]
         
         
         # ============================================================
         # request oauth token if needed
         @log.info("#{oauth_token}")
-        if  !oauth_token.nil? && !oauth_secret.nil?
+        if  !oauth_token.nil? && !oauth_secret.nil? && !oauth_token.empty? && !oauth_secret.empty?
             access_token = client.reconnect(oauth_token, oauth_secret)
         else
             request_token = client.request_token
@@ -114,7 +114,8 @@ class FitbitLogger < Slogger
             floors = summary['floors']
             distance = summary['distances'][0]['distance']
             distanceUnit = client.label_for_measurement(:distance, false)
-            activityPoints = summary['activeScore']
+            veryActiveMinutes = summary['veryActiveMinutes']
+            caloriesOut = summary["caloriesOut"]
             foodsEaten = ""
             
             if config['fitbit_log_body_measurements']
@@ -131,7 +132,7 @@ class FitbitLogger < Slogger
             end            
             if config['fitbit_log_sleep']
                 sleep = client.sleep_on_date(timestring)
-                sleepSummary = sleep['summary']
+                sleepSummary = sleep['summary'] 
                 
                 hoursInBed = sleepSummary['totalTimeInBed'] / 60
                 minutesInBed = sleepSummary['totalTimeInBed'] - (hoursInBed * 60)
@@ -169,10 +170,11 @@ class FitbitLogger < Slogger
                 @log.info("Steps: #{steps}")
                 @log.info("Distance: #{distance} #{distanceUnit}")
                 @log.info("Floors: #{floors}")
-                @log.info("ActivityPoints: #{activityPoints}")
-				@log.info("Weight: #{weight} #{weightUnit}")
-				@log.info("BMI: #{bmi}")     
-				@log.info("Water Intake: #{loggedWater} #{waterUnit}")        
+                @log.info("Very Active Minutes: #{veryActiveMinutes}")
+                @log.info("Calories Out: #{caloriesOut}")
+                @log.info("Weight: #{weight} #{weightUnit}")
+                @log.info("BMI: #{bmi}")
+                @log.info("Water Intake: #{loggedWater} #{waterUnit}")
                 @log.info("Time In Bed: #{timeInBed}")
                 @log.info("Time Asleep: #{timeAsleep}")
                 @log.info("Foods Eaten:\n #{foodsEaten}")
@@ -181,7 +183,7 @@ class FitbitLogger < Slogger
             tags = config['fitbit_tags'] || ''
             tags = "\n\n#{tags}\n" unless tags == ''
             
-            output = "**Steps:** #{steps}\n**Floors:** #{floors}\n**Distance:** #{distance} #{distanceUnit}\n**Activity Points:** #{activityPoints}\n"
+            output = "**Steps:** #{steps}\n**Floors:** #{floors}\n**Distance:** #{distance} #{distanceUnit}\n**Very Active Minutes:** #{veryActiveMinutes}\n**Calories Out:** #{caloriesOut}\n"
             
             if config['fitbit_log_body_measurements']
                 output += "**Weight:** #{weight} #{weightUnit}\n**BMI:** #{bmi}\n"
@@ -222,6 +224,19 @@ class FitbitLogger < Slogger
             return "Dinner"
         else
             return "Anytime"
+        end
+    end
+
+    def translateUnitSystem(unitSystemString)
+        case unitSystemString
+        when "US"
+            return Fitgem::ApiUnitSystem.US
+        when "METRIC"
+            return Fitgem::ApiUnitSystem.METRIC
+        when "UK"
+            return Fitgem::ApiUnitSystem.UK
+        else 
+            return Fitgem::ApiUnitSystem.US
         end
     end
 end
